@@ -23,7 +23,9 @@ def test(model, env):
 env = gym.make('envs/obs-v0', render_mode=None, size=16, obs_num=100, seed=4)
 env = Monitor(env, 'Monitor_data')
 model = PPO('MultiInputPolicy', env, verbose=0)
-model.learn(2000, callback=BestModelCallback, progress_bar=True)
-env.unwrapped.to_human()
+log_callback = BestModelCallback(model=model,env=env,check_freq=100,n_eval_episodes=10,patience=20)
+model.learn(200, callback=log_callback, progress_bar=True)
+# model.learn(2000, progress_bar=True)
+# env.unwrapped.to_human()
 
-test(model,env)
+# test(model,env)
