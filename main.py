@@ -1,6 +1,5 @@
 # This is a sample Python script.
 import gymnasium as gym
-import envs
 from stable_baselines3.common import results_plotter
 from stable_baselines3.common.callbacks import CheckpointCallback, EvalCallback
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -11,6 +10,7 @@ from env import Pendulum
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 from stable_baselines3 import PPO
 import os
+import envs
 def start():
     env = Pendulum()
     model = PPO('MlpPolicy', env)
@@ -32,7 +32,7 @@ def start():
 # Press the green button in the gutter to run the script.
 
 if __name__ == '__main__':
-    env = gym.make('envs/obs-v0', size=10, obs_num=20, render_mode="human", seed=3)
+    env = gym.make('envs/obs-v0', size=10, obs_num=20, render_mode="human", seed=4)
 
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

@@ -1,33 +1,40 @@
+import numpy as np
+import numpy.random
 import pygame
 import gymnasium as gym
 from gymnasium import spaces
 import torch
 
+
 class Obsworld(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=10,obsnum=None, seed=None):
-        self.obs_num = obsnum
-        self.seed = seed
+    def __init__(self, render_mode=None, size=10, obs_num=None, seed=None):
+        super().__init__()
+        np.random.seed(seed)
         torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        self.obs_num = obs_num
+        self.seed = seed
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window
         self.steps = 0
+        self.arrive_count = 0
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
         self.observation_space = spaces.Dict(
             {
                 "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
                 "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-                "no_obs": spaces.Discrete(4),
-                "last_actions": spaces.MultiDiscrete([4, 4, 4, 4, 4])
+                # "no_obs": spaces.Discrete(4),
+                # "last_actions": spaces.MultiDiscrete([4, 4, 4, 4, 4])
             }
-        )#set the observation_space type dict,tuple can be space too
+        )  # set the observation_space type dict,tuple can be space too
 
         # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
-        self.action_space = spaces.Discrete(5)
-        self.obstacle = torch.zeros(size=(self.obs_num, 2))
-        self.is_obs = torch.zeros(size=(self.size, self.size))
+        self.action_space = spaces.Discrete(4)
+        self.obstacle = np.zeros(shape=(self.obs_num, 2))
+        self.is_obs = np.zeros(shape=(self.size, self.size))
 
         """
         The following dictionary maps abstract actions from `self.action_space` to 
@@ -35,10 +42,10 @@ class Obsworld(gym.Env):
         I.e. 0 corresponds to "right", 1 to "up" etc.
         """
         self.action_to_direction = {
-            0: torch.Tensor([1, 0]),
-            1: torch.Tensor([0, 1]),
-            2: torch.Tensor([-1, 0]),
-            3: torch.Tensor([0, -1]),
+            0: np.array([1, 0]),
+            1: np.array([0, 1]),
+            2: np.array([-1, 0]),
+            3: np.array([0, -1]),
         }
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
@@ -53,26 +60,30 @@ class Obsworld(gym.Env):
         """
         self.window = None
         self.clock = None
-        self.agent_location = torch.randint(size=(2,),low=0, high=self.size)
+        self.agent_location = np.random.randint(low=0, high=self.size, size=2)
+        self.target_location = self.generate_random_target()
 
         # We will sample the target's location randomly until it does not coincide with the agent's location
         self.start_pos = self.agent_location
-        self.target_location = self.generate_random_target()
-
+        self.is_obs = np.zeros(shape=(size, size))
+        self.generate_obstacles()
 
     def _get_obs(self):
         return {"agent": self.agent_location, "target": self.target_location}
 
     def _get_info(self):
         return {
-            "distance": torch.norm(
-                self.agent_location.float() - self.target_location.float(), p=1
+            "distance": np.linalg.norm(
+                self.agent_location - self.target_location, ord=1
             )
         }
 
+    def to_human(self):
+        self.render_mode = "human"
+
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
-        super().reset(seed=seed)
+        super().reset()
         self.agent_location = self.start_pos
         # Choose the agent's location uniformly at random
 
@@ -85,65 +96,69 @@ class Obsworld(gym.Env):
         return observation, info
 
     def generate_random_target(self):
-        tgt = torch.randint(size=(2,), low=0, high=self.size)
-        while torch.equal(tgt, self.agent_location):
-            tgt = torch.randint(size=(2,), low=0, high=self.size)
+        tgt = np.random.randint(low=0, high=self.size, size=2)
+        while np.array_equal(tgt, self.agent_location):
+            tgt = np.random.randint(low=0, high=self.size, size=2)
         return tgt
 
     def get_observation(self):
         return {"agent": self.agent_location, "target": self.target_location}
 
     def generate_obstacles(self):
-        self.obstacle = torch.randint(low=0, high=self.size, size=(self.obs_num, 2))
+        self.obstacle = np.random.randint(low=0, high=self.size, size=(self.obs_num, 2))
         for i in range(self.obs_num):
-            while torch.equal(self.obstacle[i], self.agent_location) or torch.equal(self.obstacle[i],self.target_location):
-                self.obstacle[i] = torch.randint(low=0, high=self.size, size=(2,))
+            while np.array_equal(
+                self.obstacle[i], self.agent_location
+            ) or np.array_equal(self.obstacle[i], self.target_location):
+                self.obstacle[i] = np.random.randint(low=0, high=self.size, size=2)
         for obs in self.obstacle:
-            self.is_obs[obs[0].item(), obs[1].item()] = 1
+            self.is_obs[obs[0], obs[1]] = 1
 
     def step(self, action):
         # Map the action (element of {0,1,2,3}) to the direction we walk in
         direction = self.action_to_direction[action]
-        self.agent_location = torch.clamp(self.agent_location + direction, 0, self.size - 1)
 
-        terminated = torch.equal(self.agent_location, self.target_location)
-        reward = 1 if terminated else 0
+        obs, info, reward, new_location = self.act(action=action)
 
-        obs = self.get_observation()
-        info = self._get_info()
+        terminated = np.array_equal(self.agent_location, self.target_location)
 
         if self.render_mode == "human":
             self._render_frame()
         self.steps += 1
+        # truncated=False
+        if terminated:
+            self.arrive_count += 1
+        print(self.steps, self.arrive_count)
         return obs, reward, terminated, False, info
 
     def legal(self, space):
-        space = space.type(torch.int64)
-        r1 = torch.ge(space, 0)
-        if not torch.all(r1):
+        space = space.astype(np.int64)
+        r1 = space >= 0
+        if not np.all(r1):
             return False
-        r2 = torch.lt(space, self.size)
-        if not torch.all(r2):
+        r2 = space < self.size
+        if not np.all(r2):
             return False
-        r3 = (self.is_obs[space[0].item(), space[1].item()] == 0).item()
+        r3 = self.is_obs[space[0], space[1]] == 0
         return r3
 
     def act(self, action):
-
         # print("dir",self.action_to_direction[action],"state:",state,"new_state:",new_state)
         new_location = self.agent_location + self.action_to_direction[action]
-        print(self.agent_location, self.legal(new_location), new_location)
-        rewards = 0
+        # print(self.agent_location, self.legal(new_location), new_location)
+        reward = 0
 
         if not self.legal(new_location):
-            rewards = -5
+            reward -= 30
             new_location = self.agent_location
 
-        if torch.equal(new_location, self.target_location):
-            rewards = 20
-
+        if np.array_equal(new_location, self.target_location):
+            reward += 512
+        obs = self.get_observation()
+        info = self._get_info()
+        reward -= abs(3 * info["distance"])
         self.agent_location = new_location
-        return action, rewards, new_location
+        return obs, info, reward, new_location
 
     def render(self):
         if self.render_mode == "rgb_array":
@@ -158,7 +173,7 @@ class Obsworld(gym.Env):
             self.clock = pygame.time.Clock()
 
         canvas = pygame.Surface((self.window_size, self.window_size))
-        canvas.fill((255, 255, 255))#白色背景
+        canvas.fill((255, 255, 255))  # 白色背景
         pix_square_size = (
             self.window_size / self.size
         )  # The size of a single grid square in pixels
@@ -168,37 +183,47 @@ class Obsworld(gym.Env):
             canvas,
             (255, 0, 0),
             pygame.Rect(
-                pix_square_size * self.target_location[0].item(),
-                pix_square_size * self.target_location[1].item(),
+                pix_square_size * self.target_location[0],
+                pix_square_size * self.target_location[1],
                 pix_square_size,
-                pix_square_size
+                pix_square_size,
             ),
         )
-        if self.steps == 0:
-            pygame.draw.rect(
-                canvas,
-                (150, 100, 90),
-                pygame.Rect(
-                    pix_square_size * self.agent_location[0].item(),
-                    pix_square_size * self.agent_location[1].item(),
-                    pix_square_size,
-                    pix_square_size
-                ),
-            )
+        pygame.draw.rect(
+            canvas,
+            (255, 255, 0),
+            pygame.Rect(
+                pix_square_size * self.start_pos[0],
+                pix_square_size * self.start_pos[1],
+                pix_square_size,
+                pix_square_size,
+            ),
+        )
         pygame.draw.rect(
             canvas,
             (255, 0, 0),
             pygame.Rect(
-                pix_square_size * self.target_location[0].item(),
-                pix_square_size * self.target_location[1].item(),
+                pix_square_size * self.target_location[0],
+                pix_square_size * self.target_location[1],
                 pix_square_size,
-                pix_square_size
+                pix_square_size,
             ),
         )
+        for obs in self.obstacle:
+            pygame.draw.rect(
+                canvas,
+                (0, 0, 0),
+                pygame.Rect(
+                    pix_square_size * obs[0],
+                    pix_square_size * obs[1],
+                    pix_square_size,
+                    pix_square_size,
+                ),
+            )
         # Now we draw the agent
         pix_pos = (
-            (self.agent_location[0].item() + 0.5) * pix_square_size,
-            (self.agent_location[1].item() + 0.5) * pix_square_size
+            (self.agent_location[0] + 0.5) * pix_square_size,
+            (self.agent_location[1] + 0.5) * pix_square_size,
         )
         pygame.draw.circle(
             canvas,
