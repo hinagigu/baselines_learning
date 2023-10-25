@@ -153,10 +153,10 @@ class Obsworld(gym.Env):
             new_location = self.agent_location
 
         if np.array_equal(new_location, self.target_location):
-            reward += 512
+            reward += 1000
         obs = self.get_observation()
         info = self._get_info()
-        reward -= abs(3 * info["distance"])
+        # reward -= abs(3 * info["distance"])
         self.agent_location = new_location
         return obs, info, reward, new_location
 
