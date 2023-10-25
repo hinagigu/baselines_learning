@@ -90,7 +90,7 @@ class Obsworld(gym.Env):
 
         observation = self._get_obs()
         info = self._get_info()
-
+        self.steps = 0
         if self.render_mode == "human":
             self._render_frame()
 

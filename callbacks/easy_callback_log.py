@@ -10,7 +10,7 @@ logger.addHandler(file_handler)
 #
 
 class BestModelCallback(BaseCallback):
-    def __init__(self, model, env, check_freq=100, n_eval_episodes=200, patience=20):
+    def __init__(self, model, env, check_freq=100, n_eval_episodes=200, patience=20,best_path="best_model",fix_path="fixed_model"):
         super().__init__(verbose=0)
         self.model = model
         self.env = env
@@ -19,15 +19,16 @@ class BestModelCallback(BaseCallback):
         self.best_reward = -float("inf")
         self.n_eval_episodes = n_eval_episodes
         self.call_count = 0
-
+        self.best_model_path = best_path
+        self.fix_path = fix_path
     def _on_step(self):
         self.call_count += 1
-        print("call_count",self.call_count)
+        # print("call_count",self.call_count)
         if self.call_count % self.check_freq == 0:
             reward, std = self.evaluate()
             if reward > self.best_reward:
                 self.best_reward = reward
-                self.model.save("best_model")
+                self.model.save(self.best_model_path)
                 logger.info(
                     f"Step {self.call_count}: Best reward updated to {self.best_reward:.2f}"
                 )
@@ -38,7 +39,7 @@ class BestModelCallback(BaseCallback):
                 self.patience -= 1
                 if self.patience <= 0:
                     logger.info(f"Early stopped at step {self.env.steps}!")
-                    self.model.save("fixed_model")
+                    self.model.save(self.fix_path)
                     return False
         if self.call_count >= 10000:
             self.finish_training()
@@ -46,6 +47,7 @@ class BestModelCallback(BaseCallback):
         return True
 
     def evaluate(self):
+
         # 评估逻辑
         mean_reward, std = evaluate_policy(model=self.model,env=self.env,n_eval_episodes=self.n_eval_episodes)
         return mean_reward, std
