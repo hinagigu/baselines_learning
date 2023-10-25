@@ -61,10 +61,11 @@ class Obsworld(gym.Env):
         self.window = None
         self.clock = None
         self.agent_location = np.random.randint(low=0, high=self.size, size=2)
+        self.start_pos = self.agent_location
         self.target_location = self.generate_random_target()
 
         # We will sample the target's location randomly until it does not coincide with the agent's location
-        self.start_pos = self.agent_location
+
         self.is_obs = np.zeros(shape=(size, size))
         self.generate_obstacles()
 
@@ -96,10 +97,10 @@ class Obsworld(gym.Env):
         return observation, info
 
     def generate_random_target(self):
-        tgt = np.random.randint(low=0, high=self.size, size=2)
-        while np.array_equal(tgt, self.agent_location):
-            tgt = np.random.randint(low=0, high=self.size, size=2)
-        return tgt
+        while True:
+            tgt = np.random.randint(0, self.size, 2)
+            if not np.array_equal(tgt, self.start_pos) and tgt not in self.obstacle:
+                return tgt
 
     def get_observation(self):
         return {"agent": self.agent_location, "target": self.target_location}
@@ -120,16 +121,19 @@ class Obsworld(gym.Env):
 
         obs, info, reward, new_location = self.act(action=action)
 
+        reward -= self.steps
         terminated = np.array_equal(self.agent_location, self.target_location)
 
         if self.render_mode == "human":
             self._render_frame()
         self.steps += 1
-        # truncated=False
+        truncated = False
         if terminated:
             self.arrive_count += 1
+        if self.steps >= 200:
+            truncated = True
         print(self.steps, self.arrive_count)
-        return obs, reward, terminated, False, info
+        return obs, reward, terminated, truncated, info
 
     def legal(self, space):
         space = space.astype(np.int64)
