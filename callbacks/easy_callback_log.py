@@ -4,7 +4,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-file_handler = logging.FileHandler("training.log")
+file_handler = logging.FileHandler("./datafile/training.log")
 file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 logger.addHandler(file_handler)
 #

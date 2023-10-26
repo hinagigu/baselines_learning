@@ -11,11 +11,9 @@ class obs_world(Obsworld):
     def temperature(self):
         return 10 * np.exp(-self.steps / 50)
 
-    @property
     def _get_obs(self):
         return super()._get_obs()
 
-    @property
     def _get_info(self):
         return super()._get_info()
 
@@ -38,15 +36,23 @@ class obs_world(Obsworld):
             reward = reward_dist - 1
 
         self.agent_location = new_loc
-        obs = self._get_obs
-        info = self._get_info
+        obs = self._get_obs()
+        info = self._get_info()
         return obs, info, reward, terminated
 
+    def random_agent(self):
+        while True:
+            # 随机生成一个新位置
+            new_loc = np.random.randint(0, self.size, size=2)
+            # 检查新位置是否可达
+            if self.legal(new_loc):
+                return new_loc
+        # 概率小于p时返回原位置
+
     def step(self, action):
-        # if np.random.random() < 0.05:
-        #     # 5%概率重置agent位置
-        #     self.agent_location = self.reset_agent()
-        # print(self.steps, self.arrive_count)
+        p = min(1.0, self.temperature * 0.1)
+        if np.random.random() <= p:
+            self.agent_location = self.random_agent()
         obs, info, reward, terminated = self.act(action)
         truncated = False
         self.steps += 1

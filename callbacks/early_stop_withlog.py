@@ -4,7 +4,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-file_handler = logging.FileHandler("./datafile/training.log")
+file_handler = logging.FileHandler("../datafile/training.log")
 file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 logger.addHandler(file_handler)
 #
@@ -19,7 +19,12 @@ class BestModelCallback(BaseCallback):
         self.best_reward = -float("inf")
         self.n_eval_episodes = n_eval_episodes
         self.call_count = 0
-
+        self.best_model_path = "../model_save/best_model"
+        self.fix_model_path = "../model_save/fixed"
+    def set_best(self,path):
+        self.best_model_path = path
+    def set_fix(self,path):
+        self.fix_model_path = path
     def _on_step(self):
         self.call_count += 1
         print("call_count",self.call_count)
@@ -28,7 +33,7 @@ class BestModelCallback(BaseCallback):
 
             if reward > self.best_reward:
                 self.best_reward = reward
-                self.model.save("./model_save/best_model")
+                self.model.save(self.best_model_path)
                 logger.info(
                     f"Step {self.call_count}: Best reward updated to {self.best_reward:.2f}"
                 )
@@ -39,7 +44,7 @@ class BestModelCallback(BaseCallback):
                 self.patience -= 1
                 if self.patience <= 0:
                     logger.info(f"Early stopped at step {self.env.steps}!")
-                    self.model.save("./model_save/best_model")
+                    self.model.save(self.fix_model_path)
                     return False
         if self.call_count >= 1000000:
             self.finish_training()
@@ -55,6 +60,8 @@ class BestModelCallback(BaseCallback):
             action = int(self.model.predict(state)[0])
             # state, reward, done, _, terminated = self.env.step(action)
             obs, rewards, terminated, truncated, info = self.env.step(action)
+            if terminated or truncated:
+                self.env.reset
             episode_reward += rewards
             reward += episode_reward
         self.env.reset()

@@ -24,9 +24,8 @@ def test(model, env):
 
 
 env = gym.make('envs/obs-v0', render_mode="human", size=16, obs_num=100, seed=4)
-# env = Monitor(env, 'Monitor_data_best1')
-# model = PPO('MultiInputPolicy', env, verbose=0)
-model = PPO.load('best_model.zip')
+
+model = PPO.load('./model_save/best_model.zip')
 # log_callback = BestModelCallback(model=model,env=env,check_freq=100,n_eval_episodes=30,patience=100)
 # model.learn(10000, callback=log_callback, progress_bar=True)
 test(model,env)
