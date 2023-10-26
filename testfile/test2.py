@@ -2,11 +2,14 @@ import gymnasium as gym
 from gymnasium.envs.registration import register
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-# from callbacks.easy_callback_log import BestModelCallback
+# from callbacks.best_callback import BestModelCallback
 from callbacks.early_stop_withlog import BestModelCallback
+# from callbacks.easy_callback import EasyCallBack
+from stable_baselines3.common.evaluation import evaluate_policy
 register(
-    id="envs/obs-v1",
-    entry_point="obs_world:obs_world"
+
+    id="envs/obs-v0",
+    entry_point="obstacle_gridworld:Obsworld"
 )
 
 def test(model, env):
@@ -19,8 +22,15 @@ def test(model, env):
             env.reset()
 
 
-env = gym.make('envs/obs-v1', render_mode=None, size=16, obs_num=100, seed=4)
+env = gym.make('envs/obs-v0', render_mode=None, size=16, obs_num=100, seed=4)
 env = Monitor(env, 'Monitor_data')
 model = PPO('MultiInputPolicy', env, verbose=0)
+
 log_callback = BestModelCallback(model=model,env=env,check_freq=100,n_eval_episodes=30,patience=100)
 model.learn(10000, callback=log_callback, progress_bar=True)
+# Easyback = EasyCallBack()
+# model.learn(1000,callback=Easyback,progress_bar=True)
+# model.learn(2000, progress_bar=True)
+# env.unwrapped.to_human()
+
+# test(model,env)

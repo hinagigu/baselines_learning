@@ -88,8 +88,8 @@ class Obsworld(gym.Env):
         self.agent_location = self.start_pos
         # Choose the agent's location uniformly at random
 
-        observation = self._get_obs()
-        info = self._get_info()
+        observation = self._get_obs
+        info = self._get_info
         self.steps = 0
         if self.render_mode == "human":
             self._render_frame()

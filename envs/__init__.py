@@ -1,6 +1,5 @@
-from gymnasium.envs.registration import register
-
-register(
-    id="envs/obs-v0",
-    entry_point="obstacle_gridworld:obsworld"
-)
+import gymnasium as gym
+#
+# from obs_world import obs_world
+# from obstacle_gridworld import Obsworld
+#
